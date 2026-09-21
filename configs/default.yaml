@@ -1,0 +1,14 @@
+seed: 42
+data_dir: ${DATA_DIR:-/data/crema-d}
+output_dir: ${OUTPUT_DIR:-outputs}
+sample_rate: 16000
+duration_seconds: 4.0
+n_mels: 64
+batch_size: 32
+epochs: 50
+learning_rate: 0.001
+weight_decay: 0.0001
+patience: 8
+train_ratio: 0.70
+val_ratio: 0.15
+test_ratio: 0.15
