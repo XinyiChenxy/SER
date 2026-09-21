@@ -1,11 +1,13 @@
-# Dataset and user audio
-/data/
+# Dataset and uploaded audio
+AudioWAV/
+data/
 crema-d/
 CREMA-D/
 *.wav
 *.flac
 *.mp3
 *.ogg
+*.zip
 # Outputs, checkpoints, and TensorBoard
 outputs/
 runs/
