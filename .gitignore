@@ -1,0 +1,22 @@
+# Dataset and user audio
+/data/
+crema-d/
+CREMA-D/
+*.wav
+*.flac
+*.mp3
+*.ogg
+# Outputs, checkpoints, and TensorBoard
+outputs/
+runs/
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+# Local credentials and environments
+.env
+.kaggle/
+.venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
