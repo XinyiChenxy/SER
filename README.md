@@ -1,71 +1,96 @@
 # Vocal Emotion Lab — CREMA-D SER
 
-Local speech-emotion recognition starter project using PyTorch, a log-Mel CNN, TensorBoard, an EDA notebook, and a Streamlit demo. Predictions are estimates of acted vocal expression, not facts about a speaker's inner state.
+A local Speech Emotion Recognition project using PyTorch, log-Mel features, a CNN baseline, TensorBoard, a Jupyter EDA notebook, and a Streamlit demo. The model predicts acted vocal-expression labels; it does not establish a speaker's actual emotional state.
 
-## Data
+## Dataset
 
-Dataset: [CREMA-D on Kaggle](https://www.kaggle.com/datasets/ejlok1/cremad). This project expects CREMA-D filenames such as `1001_DFA_ANG_XX.wav`; parser validates speaker, sentence, emotion, and intensity fields and reports unreadable/unparseable files. Six classes: angry, disgust, fear, happy, neutral, sad.
+Dataset: [CREMA-D on Kaggle](https://www.kaggle.com/datasets/ejlok1/cremad). Expected audio filenames look like `1001_DFA_ANG_XX.wav`. The parser validates speaker, sentence, emotion, and intensity tokens and writes unreadable or unparseable paths to a report. Six labels: angry, disgust, fear, happy, neutral, sad.
 
-Obtain CREMA-D through Kaggle according to the dataset owner’s current terms and cite the dataset in submissions. Do not commit or redistribute the audio unless its license and course rules allow it. The audio directory is mounted read-only at `/data/crema-d`; no audio is copied into this repository.
+The dataset is not included in this repository. Place the extracted `AudioWAV` directory at the project root, or set `DATA_DIR` to its location. Follow the dataset owner's current license and citation terms; do not redistribute audio without permission.
 
-## Build and start
+## Create the Conda environment (WSL)
 
-On the Docker host, set the dataset path to your extracted CREMA-D directory, then build and start:
-
-```bash
-cd /home/mywsl/Workspace/MT_mid_pj
-export CREMA_DATA_DIR=/home/mywsl/Workspace/datasets/CREMA-D
-mkdir -p outputs
-docker compose build
-docker compose run --rm --service-ports ser
-```
-
-If GPU passthrough is available, add `gpus: all` under the compose service (Docker Compose supporting GPU reservations) or use `docker run --gpus all` with equivalent mounts. The included requirements install the pinned CPU-compatible PyTorch baseline; for CUDA, replace `torch`/`torchaudio` pins with the official matching CUDA wheel command for the host driver and desired PyTorch release before building. Verify inside container:
+From the cloned repository:
 
 ```bash
+cd ~/Workspace/SER
+conda create -n ser-emotion python=3.11 pip -y
 conda activate ser-emotion
-python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+
+export PYTHONPATH="$PWD/src"
+export DATA_DIR="$PWD/AudioWAV"
+export OUTPUT_DIR="$PWD/outputs"
+mkdir -p "$OUTPUT_DIR"
+
+python -c "import torch, torchaudio; print('torch:', torch.__version__, 'CUDA available:', torch.cuda.is_available())"
 ```
 
-## EDA and splits
+The same pinned PyTorch/torchaudio versions are listed in `requirements.txt`. If you have an NVIDIA GPU but `torch.cuda.is_available()` is false, install the CUDA-enabled PyTorch build appropriate for your driver using the official PyTorch install selector, then rerun the check. CPU training remains available.
 
-Run JupyterLab inside container with port 8888 forwarded if desired, then open `notebooks/01_cremad_eda.ipynb`. Set `DATA_DIR=/data/crema-d`. The notebook inspects labels, file health, speaker/emotion balance, durations, sample rates, channels, waveforms, FFT, log-Mel, rough silence, and speaker-independent splits.
-
-Create manifest and invalid-file report:
+If your extracted audio is elsewhere, set `DATA_DIR` to the directory containing the WAV files:
 
 ```bash
-python scripts/prepare_data.py --data /data/crema-d --output outputs
+export DATA_DIR="/absolute/path/to/AudioWAV"
 ```
 
-The deterministic split assigns speakers as groups (70/15/15 target); speaker independence takes priority over exact class proportions. Check `outputs/split_manifest.csv`; `outputs/invalid_files.csv` records files rejected by the parser or metadata reader.
+## Prepare data and inspect
 
-## Train, evaluate, TensorBoard
+Generate the deterministic speaker-independent split manifest and invalid-file report:
 
 ```bash
-python -m ser.train --data /data/crema-d --output outputs --epochs 50
-# short pipeline smoke run (still needs the dataset mounted)
-python -m ser.train --data /data/crema-d --output outputs --smoke
+python scripts/prepare_data.py --data "$DATA_DIR" --output "$OUTPUT_DIR"
+```
 
+Open the EDA notebook from the repository root:
+
+```bash
+jupyter lab notebooks/01_cremad_eda.ipynb
+```
+
+The notebook reports filename parsing, valid/invalid files, emotion and speaker distributions, audio metadata, duration, waveform, FFT/STFT, log-Mel features, a rough silence diagnostic, and split distributions. It does not fabricate results if the dataset path is missing.
+
+Splitting is by speaker with a fixed seed and targets 70/15/15. Keeping speakers disjoint takes priority over exact class proportions. Verify split counts and speaker overlap in the manifest and notebook.
+
+## Train and evaluate
+
+```bash
+python -m ser.train --data "$DATA_DIR" --output "$OUTPUT_DIR" --epochs 50
+```
+
+A short smoke run, still requiring the dataset, is:
+
+```bash
+python -m ser.train --data "$DATA_DIR" --output "$OUTPUT_DIR" --smoke
+```
+
+Training logs train and validation metrics to TensorBoard, uses validation macro-F1 for checkpoint selection and early stopping, saves the best checkpoint to `outputs/best.pt`, and evaluates the test split after model selection. Metrics are written to `outputs/test_metrics.json`. Do not use test metrics to tune the model.
+
+In a second terminal, activate the environment, go to the repository, set `PYTHONPATH` and view TensorBoard:
+
+```bash
+cd ~/Workspace/SER
+conda activate ser-emotion
+export PYTHONPATH="$PWD/src"
 tensorboard --logdir outputs/runs --host 0.0.0.0 --port 6006
 ```
 
-Training monitors validation macro-F1, saves `outputs/best.pt`, and evaluates test once after selection. Metrics go to `outputs/test_metrics.json`. The starter baseline uses 16 kHz mono, four-second center crop/padding and a CNN over log-Mel features. Validate split sizes/class representation before full training; this starter intentionally does not invent metrics or precomputed outputs.
-
 ## Interactive demo
 
+After training has created `outputs/best.pt`:
+
 ```bash
+cd ~/Workspace/SER
+conda activate ser-emotion
+export PYTHONPATH="$PWD/src"
 streamlit run app.py --server.address 0.0.0.0 --server.port 8501
 ```
 
-Open port 8501. Upload WAV/FLAC/OGG audio to inspect waveform, log-Mel, and probabilities. Audio is handled in memory aside from a temporary local inference file, which is removed after processing. No external API is used. The generated explanation is a local template tied to model output, not an independent explanation.
+Upload WAV, FLAC, or OGG to view its waveform, log-Mel spectrogram, and six class probabilities. The app uses a local text template for a short explanation; it does not call an external API. Uploaded audio is processed locally and is not intentionally retained or sent externally. The prediction is not a diagnosis.
 
-## Citation, licensing, and limitations
+## Limitations and demo flow
 
-Use the dataset page's current citation and license terms; verify these before distribution. This repository does not contain CREMA-D. Speaker-group splitting helps prevent identity leakage but does not make acted speech representative of spontaneous emotion. Confidence is not calibrated unless a separate calibration procedure is performed. Avoid psychological, clinical, hiring, or high-stakes interpretation.
+CREMA-D contains acted speech from a limited pool of speakers; results may not transfer to spontaneous speech or new recording conditions. Confidence scores are not calibrated unless a calibration step is added. Avoid clinical or other high-stakes interpretations.
 
-## Demo script
-
-1. Show the EDA class/speaker balance and explain speaker-level split.
-2. Play a permitted sample or user-provided clip and inspect waveform/log-Mel.
-3. Run the model and compare class probabilities, noting uncertainty.
-4. Explain that the output estimates acted vocal expression and is not a diagnosis.
+For a demo: show class/speaker balance in EDA, play an allowed or user-provided clip, inspect waveform/log-Mel, compare predicted class probabilities, and explain the limits of acted-speech classification.
