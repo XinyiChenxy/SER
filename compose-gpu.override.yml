@@ -1,3 +1,0 @@
-services:
-  ser:
-    gpus: all
