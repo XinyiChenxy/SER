@@ -1,4 +1,5 @@
-# CPU PyTorch baseline; replace with the official CUDA wheel index if your container has GPU support.
+# Python 3.11 environment for WSL/Linux
+# PyTorch and torchaudio use matching versions.
 torch==2.5.1
 torchaudio==2.5.1
 numpy==1.26.4
