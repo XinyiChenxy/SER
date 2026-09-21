@@ -1,0 +1,15 @@
+# CPU PyTorch baseline; replace with the official CUDA wheel index if your container has GPU support.
+torch==2.5.1
+torchaudio==2.5.1
+numpy==1.26.4
+pandas==2.2.3
+scikit-learn==1.5.2
+matplotlib==3.9.2
+seaborn==0.13.2
+soundfile==0.12.1
+librosa==0.10.2.post1
+tensorboard==2.18.0
+streamlit==1.40.1
+plotly==5.24.1
+jupyterlab==4.3.1
+ipykernel==6.29.5
